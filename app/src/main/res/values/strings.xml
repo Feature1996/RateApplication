@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">ChangeApplication</string>
+    <string name="rmb_hint">请输入人民币金额</string>
+
+</resources>
