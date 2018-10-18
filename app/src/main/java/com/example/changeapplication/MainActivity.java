@@ -3,28 +3,30 @@ package com.example.changeapplication;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.BufferedReader;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
+import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.URL;
-
 
 
 public class MainActivity extends AppCompatActivity{
@@ -47,17 +49,25 @@ public class MainActivity extends AppCompatActivity{
         show=(TextView) findViewById(R.id.show);
 
         SharedPreferences sharedPreferences =getSharedPreferences("myrate", Activity.MODE_PRIVATE);
-        dollorRate=sharedPreferences.getFloat("dollor_rate",0.0f);
+        dollorRate=sharedPreferences.getFloat("dollar_rate",0.0f);
         euroRate=sharedPreferences.getFloat("euro_rate",0.0f);
         wonRate=sharedPreferences.getFloat("won_rate",0.0f);
 
         handler =new Handler(){
             @Override
             public void handleMessage(Message msg) {
-                if(msg.what==11){
-                    String str=(String) msg.obj;
-                    Log.i("Tag","handlerMessage::"+str);
-                    show.setText(str);
+                if(msg.what==5){
+                    Bundle bdl=(Bundle) msg.obj;
+                    dollorRate=bdl.getFloat("dollar-rate");
+                    euroRate=bdl.getFloat("euro-rate");
+                    wonRate=bdl.getFloat("won-rate");
+                    Log.i("TAG","dollarkkkkkk"+dollorRate);
+                    Log.i("TAG","wonkkkkkk"+wonRate);
+                    Log.i("TAG","eurokkkkkk"+euroRate);
+
+
+
+
                 }
                 super.handleMessage(msg);
             }
@@ -76,55 +86,67 @@ public class MainActivity extends AppCompatActivity{
                     }
                 }
 
+
+                //获取网络数据；
+
+                Bundle bundle=new Bundle();//用于保存汇率
+                Document doc=null;
+                URL url=null;
+                try {
+                    doc=Jsoup.connect("http://www.boc.cn/sourcedb/whpj/").get();
+                    Log.i("run:::::",doc.title());
+                    Elements tables =doc.getElementsByTag("table");
+                    Element td=tables.get(1);
+                    Elements tds=td.getElementsByTag("td");
+                    for(int i=0;i<tds.size();i+=8){
+                        Element td1=tds.get(i);
+                        Element td2=tds.get(i+5);
+                        String str1=td1.text();
+                        String val=td2.text();
+                        Log.i("Tag",str1+"==>"+val);
+                        if("美元".equals(str1)){
+                            bundle.putFloat("dollar-rate",100f/Float.parseFloat(val));
+                        }else if("欧元".equals(str1)){
+                            bundle.putFloat("euro-rate",100f/Float.parseFloat(val));
+                        }else if("韩国元".equals(str1)){
+                            bundle.putFloat("won-rate",100f/Float.parseFloat(val));
+                        }
+                    }
+
+
+                } catch (MalformedURLException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
                 //从handler中获取meg对象；
-                Message message=handler.obtainMessage(11);
-                message.obj="hello from run ()";
+                Message message=handler.obtainMessage();
+                message.what = 5;
+                message.obj=bundle;
+                //message.obj="hello from run ()";
                 handler.sendMessage(message);
 
 
-                //获取网络数据；
-                URL url=null;
-                try {
-
-                    url =new URL("https://www.baidu.com");
-                   HttpURLConnection http=(HttpURLConnection) url.openConnection();
-                  InputStream inputStream =http.getInputStream();
-                  String html=inputstream2string(inputStream);
-                  Log.i("Tag","run :html="+html);
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
 
 
             }
         }.start();
-
-
-
     }
 
     //输入流转字符串；
-    public String inputstream2string (InputStream stream){
-        BufferedReader bufferedReader =new BufferedReader(new InputStreamReader(stream));
-        StringBuilder stringBuilder =new StringBuilder();
-        String line=null;
-        try{
-            while ((line=bufferedReader.readLine())!=null){
-                stringBuilder.append(line+"/n");
-            }
-        }catch (Exception e){
-            e.printStackTrace();
-        }finally {
-            try {
-                stream.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+    public String inputStream2String(InputStream inputStream) throws IOException {
+        final int bufferSize = 1024;
+        final char[] buffer = new char[bufferSize];
+        final StringBuilder out = new StringBuilder();
+        Reader in = new InputStreamReader(inputStream, "gb2312");
+        for(; ;){
+            int rsz = in.read(buffer,0,buffer.length);
+            if(rsz < 0)
+                break;
+            out.append(buffer,0,rsz);
         }
-        return  stringBuilder.toString();
+        return out.toString();
     }
-
 
 
     public void onclick(View btn){
@@ -171,6 +193,10 @@ public class MainActivity extends AppCompatActivity{
             config.putExtra("euroRate",euroRate);
             config.putExtra("wonRate",wonRate);
             startActivityForResult(config,1);
+        }else if(item.getItemId()==R.id.open_list){
+            //打开列表
+            Intent list = new Intent(this,RateListActivity.class);
+            startActivity(list);
         }
         return super.onOptionsItemSelected(item);
     }
